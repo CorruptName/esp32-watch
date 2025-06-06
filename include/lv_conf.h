@@ -24,6 +24,18 @@
 /*Color depth: 8 (A8), 16 (RGB565), 24 (RGB888), 32 (XRGB8888)*/
 #define LV_COLOR_DEPTH 16
 
+
+// Enable double buffering
+#define LV_USE_GPU              1
+#define LV_USE_GPU_ESP32        1  // Enable ESP32 GPU acceleration
+#define LV_DISP_DEF_REFR_PERIOD 5 // 10ms (100 FPS)
+
+// Set appropriate animation speed
+#define LV_ANIM_SPEED_DEFAULT   300 // Adjust as needed
+
+// Optimize memory usage
+#define LV_IMG_CACHE_DEF_SIZE   5
+
 /*=========================
    STDLIB WRAPPER SETTINGS
  *=========================*/
@@ -121,7 +133,7 @@
 
     /* 0: use a simple renderer capable of drawing only simple rectangles with gradient, images, texts, and straight lines only
      * 1: use a complex renderer capable of drawing rounded corners, shadow, skew lines, and arcs too */
-    #define LV_DRAW_SW_COMPLEX          1
+    #define LV_DRAW_SW_COMPLEX          0
 
     #if LV_DRAW_SW_COMPLEX == 1
         /*Allow buffering some shadow calculation.

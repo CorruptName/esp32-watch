@@ -1,4 +1,3 @@
-
 #pragma once
 
 #define LGFX_USE_V1
@@ -22,19 +21,19 @@ public:
     {
       auto cfg = _bus_instance.config();
 
-      // SPI bus settings
-      cfg.spi_host = SPI; // Select the SPI to use ESP32-S2,C3 : SPI2_HOST or SPI3_HOST / ESP32 : VSPI_HOST or HSPI_HOST
-      // * Due to the ESP-IDF version upgrade, VSPI_HOST, The HSPI_HOST specification is deprecated, so if you get an error, use SPI2_HOST or SPI3_HOST instead.
-      cfg.spi_mode = 0;                       // Set SPI communication mode (0 ~ 3)
-      cfg.freq_write = 80000000;              // SPI time (up to 80MHz, four or five inputs divided by 80MHz to get an integer)
-      cfg.freq_read = 20000000;               // SPI time when connected cfg.spi_3wire = true; // Set true if receiving is done via MOSI pin
-      cfg.use_lock = true;                    // Usage lock time setting true
-      cfg.dma_channel = SPI_DMA_CH_AUTO;      // Set the DMA channel to use (0=DMA not used / 1=1ch / 2=ch / SPI_DMA_CH_AUTO=automatic setting) // * Due to the ESP-IDF version upgrade, SPI_DMA_CH_AUTO (automatic setting) is now recommended for the DMA channel. Specifying 1ch or 2ch is no longer recommended.
-      cfg.pin_sclk = SCLK;                    // Set the SPI SCLK pin number
-      cfg.pin_mosi = MOSI;                    // Set the SPI CLK pin number
-      cfg.pin_miso = MISO;                    // Set the SPI MISO pin number (-1 = disable)
-      cfg.pin_dc = DC;                        // Set the SPI D/C pin number (-1 = disable)
-      _bus_instance.config(cfg);              // Reflect the setting value to the bus.
+      // SPI bus settings for DMA - use only properties supported in LovyanGFX 1.1.16
+      cfg.spi_host = SPI2_HOST;  // For ESP32-S3
+      cfg.spi_mode = 0;
+      cfg.freq_write = 80000000;  // Maximum frequency for good stability
+      cfg.freq_read = 20000000;
+      cfg.use_lock = true;
+      cfg.dma_channel = 1;       // Use explicit DMA channel
+      cfg.pin_sclk = SCLK;
+      cfg.pin_mosi = MOSI;
+      cfg.pin_miso = MISO;
+      cfg.pin_dc = DC;
+
+      _bus_instance.config(cfg);
       _panel_instance.setBus(&_bus_instance); // Set the bus to the panel.
     }
 

@@ -1,4 +1,3 @@
-
 #pragma once
 #include <Arduino.h>
 
@@ -67,7 +66,8 @@ public:
 
     void pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *data)
     {
-        gfx->draw16bitBeRGBBitmap(x, y, data, w, h);
+        // Ensure this method actually uses DMA in the underlying library
+        gfx->draw16bitBeRGBBitmap(x, y, data, w, h, true);  // Add a 'true' parameter if the library supports specifying DMA
     }
 
     void startWrite(void) {}

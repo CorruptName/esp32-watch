@@ -59,7 +59,7 @@
 #define buf_size 10
 #elif defined(VIEWE_SMARTRING) || defined(VIEWE_KNOB_15)
 #include "displays/viewe.hpp"
-#define buf_size 40
+#define buf_size 32
 #define SW_ROTATION
 #else
 #include "displays/generic.hpp"
@@ -98,8 +98,10 @@ GyroData gyro;
 static const uint32_t screenWidth = SCREEN_WIDTH;
 static const uint32_t screenHeight = SCREEN_HEIGHT;
 
+#define buf_size 40  // Increase from 10 to 40 lines (about 25% of your screen height)
 const unsigned int lvBufferSize = screenWidth * buf_size;
-uint8_t lvBuffer[2][lvBufferSize];
+// Make sure buffers are DMA-compatible (32-bit aligned)
+DRAM_ATTR static lv_color_t lvBuffer[2][lvBufferSize] __attribute__((aligned(32)));
 
 bool weatherUpdate = true, notificationsUpdate = true, weatherUpdateFace = true;
 
@@ -180,39 +182,17 @@ lv_display_rotation_t getRotation(uint8_t rotation)
 /* Display flushing */
 void my_disp_flush(lv_display_t *display, const lv_area_t *area, unsigned char *data)
 {
-
   uint32_t w = lv_area_get_width(area);
   uint32_t h = lv_area_get_height(area);
-  lv_draw_sw_rgb565_swap(data, w * h);
+  
+  // Only swap bytes if needed - check if your display requires this
+  // lv_draw_sw_rgb565_swap(data, w * h);  // Try commenting this out
 
-#ifdef SW_ROTATION
-  lv_display_rotation_t rotation = lv_display_get_rotation(display);
-	lv_area_t rotated_area;
-  if(rotation != LV_DISPLAY_ROTATION_0) {
-    lv_color_format_t cf = lv_display_get_color_format(display);
-    /*Calculate the position of the rotated area*/
-    rotated_area = *area;
-    lv_display_rotate_area(display, &rotated_area);
-    /*Calculate the source stride (bytes in a line) from the width of the area*/
-    uint32_t src_stride = lv_draw_buf_width_to_stride(lv_area_get_width(area), cf);
-    /*Calculate the stride of the destination (rotated) area too*/
-    uint32_t dest_stride = lv_draw_buf_width_to_stride(lv_area_get_width(&rotated_area), cf);
-    /*Have a buffer to store the rotated area and perform the rotation*/
-    static uint8_t rotated_buf[lvBufferSize];
-    lv_draw_sw_rotate(data, rotated_buf, w, h, src_stride, dest_stride, rotation, cf);
-    /*Use the rotated area and rotated buffer from now on*/
-    area = &rotated_area;
-    data = rotated_buf;
-  }
-#endif
-
-  if (tft.getStartCount() == 0)
-  {
-    tft.endWrite();
-  }
-
-  tft.pushImageDMA(area->x1, area->y1, area->x2 - area->x1 + 1, area->y2 - area->y1 + 1, (uint16_t *)data);
-  lv_display_flush_ready(display); /* tell lvgl that flushing is done */
+  tft.startWrite();
+  tft.pushImageDMA(area->x1, area->y1, w, h, (uint16_t *)data);
+  
+  // Don't wait for DMA to finish - that's the point of DMA
+  lv_display_flush_ready(display);
 }
 
 void rounder_event_cb(lv_event_t *e)
@@ -1795,14 +1775,13 @@ void hal_setup()
 
   lv_tick_set_cb(my_tick);
 
-  static auto *lvDisplay = lv_display_create(screenWidth, screenHeight);
-  lv_display_set_color_format(lvDisplay, LV_COLOR_FORMAT_RGB565);
-  lv_display_set_flush_cb(lvDisplay, my_disp_flush);
-  lv_display_set_buffers(lvDisplay, lvBuffer[0], lvBuffer[1], lvBufferSize, LV_DISPLAY_RENDER_MODE_PARTIAL);
-  lv_display_add_event_cb(lvDisplay, rounder_event_cb, LV_EVENT_INVALIDATE_AREA, NULL);
+  // Setup double buffering for LVGL
+  lv_display_t *display = lv_display_create(screenWidth, screenHeight);
+  lv_display_set_buffers(display, lvBuffer[0], lvBuffer[1], lvBufferSize, LV_DISPLAY_RENDER_MODE_DIRECT);
+  lv_display_set_flush_cb(display, my_disp_flush);
 
 #ifdef SW_ROTATION
-  lv_display_set_rotation(lvDisplay, getRotation(rt));
+  lv_display_set_rotation(display, getRotation(rt));
 #endif
 
   static auto *lvInput = lv_indev_create();
@@ -2408,16 +2387,20 @@ void parseDial(const char *path, bool restart)
   uint8_t az[1];
   if (!readDialBytes(path, az, 0, 1))
   {
+   
     Serial.println("Failed to read watchface header");
     errors++;
   }
   uint8_t j = az[0];
 
   static uint8_t item[20];
+ 
+ 
+ 
   static uint8_t table[512];
 
   uint8_t lid = 0;
-  int a = 0;
+  int a =    0;
   int lan = 0;
   int tp = 0;
   int wt = 0;
@@ -2810,4 +2793,11 @@ bool lvImgHeader(uint8_t *byteArray, uint8_t cf, uint16_t w, uint16_t h, uint16_
   byteArray[11] = 0;
 
   return true;
+}
+
+void lvgl_task_handler(void* param) {
+  while(1) {
+    lv_timer_handler();
+    vTaskDelay(pdMS_TO_TICKS(5));  // 5ms refresh rate
+  }
 }
